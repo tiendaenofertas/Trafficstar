@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Trafficstars - Estadísticas en Tiempo Real</title>
+    
+    <!-- CSS Integrado -->
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #0f0f23;
+            color: #e4e4e7;
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            padding: 2rem 0;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 0.75rem 1.5rem;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            background: #10b981;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+
+        /* Tarjetas de Métricas */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .metric-card {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .metric-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #60a5fa, #a78bfa);
+            transform: scaleX(0);
+            transition: transform 0.3s ease;
+        }
+
+        .metric-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .metric-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px -10px rgba(96, 165, 250, 0.3);
+        }
+
+        .metric-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .metric-title {
+            font-size: 0.875rem;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .metric-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+        }
+
+        .metric-value {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .metric-change {
+            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .positive { color: #10b981; }
+        .negative { color: #ef4444; }
+
+        /* Tabla de Estadísticas */
+        .stats-section {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .section-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .filters {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #e4e4e7;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.875rem;
+        }
+
+        .filter-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .filter-btn.active {
+            background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%);
+            border-color: transparent;
+        }
+
+        /* Tabla Responsiva */
+        .table-container {
+            overflow-x: auto;
+            margin-top: 1rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        th {
+            background: rgba(255, 255, 255, 0.03);
+            font-weight: 600;
+            color: #94a3b8;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.05em;
+        }
+
+        tbody tr {
+            transition: background 0.2s ease;
+        }
+
+        tbody tr:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .country-cell {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .flag {
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            background: #64748b;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+        }
+
+        .earnings {
+            font-weight: 600;
+            color: #10b981;
+        }
+
+        .cpm {
+            color: #60a5fa;
+        }
+
+        /* Loader */
+        .loader-container {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(15, 15, 35, 0.9);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .loader {
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top-color: #60a5fa;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Modal de Configuración */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+            padding: 1rem;
+        }
+
+        .modal-content {
+            background: #1e293b;
+            border-radius: 16px;
+            padding: 2rem;
+            max-width: 500px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: #94a3b8;
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: color 0.2s ease;
+        }
+
+        .close-btn:hover {
+            color: #e4e4e7;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #94a3b8;
+            font-size: 0.875rem;
+        }
+
+        input {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #e4e4e7;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #60a5fa;
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%);
+            color: white;
+            border: none;
+            padding: 0.75rem 2rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px -10px rgba(96, 165, 250, 0.5);
+        }
+
+        /* Alertas */
+        .alert {
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            display: none;
+        }
+
+        .alert-error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            color: #fca5a5;
+        }
+
+        .alert-success {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            color: #86efac;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            h1 {
+                font-size: 1.5rem;
+            }
+
+            .metric-value {
+                font-size: 1.5rem;
+            }
+
+            .table-container {
+                margin: 0 -1rem;
+            }
+
+            th, td {
+                padding: 0.75rem 0.5rem;
+                font-size: 0.875rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Loader -->
+    <div class="loader-container" id="loader">
+        <div class="loader"></div>
+    </div>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <h1>Dashboard Trafficstars</h1>
+                <div class="user-info">
+                    <div class="status-indicator"></div>
+                    <span id="userName">Usuario</span>
+                    <button class="filter-btn" onclick="openSettings()">⚙️ Configuración</button>
+                    <button class="filter-btn" onclick="logout()" style="background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.2);">🚪 Cerrar Sesión</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container">
+        <!-- Alertas -->
+        <div class="alert alert-error" id="errorAlert"></div>
+        <div class="alert alert-success" id="successAlert"></div>
+
+        <!-- Métricas Principales -->
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-header">
+                    <span class="metric-title">Visitas Totales</span>
+                    <div class="metric-icon" style="background: rgba(96, 165, 250, 0.1); color: #60a5fa;">
+                        👁️
+                    </div>
+                </div>
+                <div class="metric-value" id="totalVisits">0</div>
+                <div class="metric-change positive">
+                    <span>↑</span>
+                    <span id="visitsChange">+0%</span>
+                </div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-header">
+                    <span class="metric-title">Ganancias Totales</span>
+                    <div class="metric-icon" style="background: rgba(16, 185, 129, 0.1); color: #10b981;">
+                        💰
+                    </div>
+                </div>
+                <div class="metric-value" id="totalEarnings">$0.00</div>
+                <div class="metric-change positive">
+                    <span>↑</span>
+                    <span id="earningsChange">+0%</span>
+                </div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-header">
+                    <span class="metric-title">CPM Promedio</span>
+                    <div class="metric-icon" style="background: rgba(167, 139, 250, 0.1); color: #a78bfa;">
+                        📊
+                    </div>
+                </div>
+                <div class="metric-value" id="avgCPM">$0.00</div>
+                <div class="metric-change positive">
+                    <span>↑</span>
+                    <span id="cpmChange">+0%</span>
+                </div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-header">
+                    <span class="metric-title">Países Activos</span>
+                    <div class="metric-icon" style="background: rgba(251, 191, 36, 0.1); color: #fbbf24;">
+                        🌍
+                    </div>
+                </div>
+                <div class="metric-value" id="activeCountries">0</div>
+                <div class="metric-change positive">
+                    <span>↑</span>
+                    <span id="countriesChange">+0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabla de Estadísticas por País -->
+        <div class="stats-section">
+            <div class="section-header">
+                <h2 class="section-title">Estadísticas por País</h2>
+                <div class="filters">
+                    <button class="filter-btn active" onclick="setTimeFilter('today')">Hoy</button>
+                    <button class="filter-btn" onclick="setTimeFilter('week')">7 Días</button>
+                    <button class="filter-btn" onclick="setTimeFilter('month')">30 Días</button>
+                    <button class="filter-btn" onclick="refreshData()">🔄 Actualizar</button>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>País</th>
+                            <th>Visitas</th>
+                            <th>Ganancias</th>
+                            <th>CPM</th>
+                            <th>% del Total</th>
+                        </tr>
+                    </thead>
+                    <tbody id="countryStatsBody">
+                        <!-- Los datos se cargarán dinámicamente -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal de Configuración -->
+    <div class="modal" id="settingsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Configuración de API</h3>
+                <button class="close-btn" onclick="closeSettings()">×</button>
+            </div>
+            
+            <form id="settingsForm" onsubmit="saveSettings(event)">
+                <div class="form-group">
+                    <label for="clientId">ID de Cliente</label>
+                    <input type="text" id="clientId" placeholder="Ingresa tu Client ID" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="apiSecret">Clave API Secreta</label>
+                    <input type="password" id="apiSecret" placeholder="Ingresa tu API Secret" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="refreshInterval">Intervalo de Actualización (segundos)</label>
+                    <input type="number" id="refreshInterval" value="300" min="60" max="3600">
+                </div>
+                
+                <button type="submit" class="btn-primary">Guardar Configuración</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script>
+        // Variables globales
+        let apiConfig = {
+            clientId: '',
+            apiSecret: '',
+            refreshInterval: 300
+        };
+
+        let currentFilter = 'today';
+        let refreshTimer = null;
+        let currentUser = null;
+
+        // Verificar autenticación al cargar
+        async function checkAuthentication() {
+            try {
+                const response = await fetch('auth.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'check'
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!data.authenticated) {
+                    // No autenticado, redirigir al login
+                    window.location.href = 'login.html';
+                    return false;
+                }
+
+                // Usuario autenticado
+                currentUser = data.user;
+                document.getElementById('userName').textContent = currentUser.name || currentUser.email;
+                
+                // Cargar credenciales API del usuario
+                await loadUserApiCredentials();
+                
+                return true;
+            } catch (error) {
+                console.error('Error verificando autenticación:', error);
+                window.location.href = 'login.html';
+                return false;
+            }
+        }
+
+        // Cargar credenciales API del usuario
+        async function loadUserApiCredentials() {
+            try {
+                const response = await fetch('auth.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'get_api_credentials'
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success && data.credentials) {
+                    apiConfig.clientId = data.credentials.client_id || '';
+                    apiConfig.apiSecret = data.credentials.api_secret || '';
+                    
+                    // También verificar localStorage por si hay configuración local
+                    const localClientId = localStorage.getItem('ts_client_id');
+                    const localApiSecret = localStorage.getItem('ts_api_secret');
+                    
+                    if (!apiConfig.clientId && localClientId) {
+                        apiConfig.clientId = localClientId;
+                    }
+                    if (!apiConfig.apiSecret && localApiSecret) {
+                        apiConfig.apiSecret = localApiSecret;
+                    }
+                    
+                    apiConfig.refreshInterval = parseInt(localStorage.getItem('ts_refresh_interval') || '300');
+                }
+            } catch (error) {
+                console.error('Error cargando credenciales:', error);
+            }
+        }
+
+        // Función de logout
+        async function logout() {
+            if (confirm('¿Estás seguro de que deseas cerrar sesión?')) {
+                try {
+                    await fetch('auth.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            action: 'logout'
+                        })
+                    });
+
+                    // Limpiar almacenamiento local
+                    sessionStorage.clear();
+                    localStorage.removeItem('auth_token');
+                    
+                    // Redirigir al login
+                    window.location.href = 'login.html';
+                } catch (error) {
+                    console.error('Error al cerrar sesión:', error);
+                    // Redirigir de todos modos
+                    window.location.href = 'login.html';
+                }
+            }
+        }
+
+        // Inicialización
+        document.addEventListener('DOMContentLoaded', async function() {
+            // Primero verificar autenticación
+            const isAuthenticated = await checkAuthentication();
+            
+            if (!isAuthenticated) {
+                return; // Ya fue redirigido al login
+            }
+
+            // Continuar con la inicialización normal
+            if (!apiConfig.clientId || !apiConfig.apiSecret) {
+                openSettings();
+                showAlert('error', 'Por favor configura tus credenciales de API');
+            } else {
+                loadDashboard();
+                startAutoRefresh();
+            }
+        });
+
+        // Funciones de UI
+        function openSettings() {
+            document.getElementById('settingsModal').style.display = 'flex';
+            document.getElementById('clientId').value = apiConfig.clientId;
+            document.getElementById('apiSecret').value = apiConfig.apiSecret;
+            document.getElementById('refreshInterval').value = apiConfig.refreshInterval;
+        }
+
+        function closeSettings() {
+            document.getElementById('settingsModal').style.display = 'none';
+        }
+
+        function showLoader() {
+            document.getElementById('loader').style.display = 'flex';
+        }
+
+        function hideLoader() {
+            document.getElementById('loader').style.display = 'none';
+        }
+
+        function showAlert(type, message) {
+            const alertId = type === 'error' ? 'errorAlert' : 'successAlert';
+            const alert = document.getElementById(alertId);
+            alert.textContent = message;
+            alert.style.display = 'block';
+            
+            setTimeout(() => {
+                alert.style.display = 'none';
+            }, 5000);
+        }
+
+        // Guardar configuración
+        async function saveSettings(event) {
+            event.preventDefault();
+            
+            apiConfig.clientId = document.getElementById('clientId').value;
+            apiConfig.apiSecret = document.getElementById('apiSecret').value;
+            apiConfig.refreshInterval = parseInt(document.getElementById('refreshInterval').value);
+            
+            // Guardar en localStorage
+            localStorage.setItem('ts_client_id', apiConfig.clientId);
+            localStorage.setItem('ts_api_secret', apiConfig.apiSecret);
+            localStorage.setItem('ts_refresh_interval', apiConfig.refreshInterval);
+            
+            // También actualizar en el servidor
+            try {
+                await fetch('auth.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'update_api_credentials',
+                        client_id: apiConfig.clientId,
+                        api_secret: apiConfig.apiSecret
+                    })
+                });
+            } catch (error) {
+                console.error('Error actualizando credenciales en servidor:', error);
+            }
+            
+            closeSettings();
+            showAlert('success', 'Configuración guardada correctamente');
+            loadDashboard();
+            startAutoRefresh();
+        }
+
+        // Cambiar filtro de tiempo
+        function setTimeFilter(filter) {
+            currentFilter = filter;
+            
+            // Actualizar botones activos
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            loadDashboard();
+        }
+
+        // Cargar datos del dashboard
+        async function loadDashboard() {
+            if (!apiConfig.clientId || !apiConfig.apiSecret) {
+                return;
+            }
+            
+            showLoader();
+            
+            try {
+                const response = await fetch('api.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'getStats',
+                        clientId: apiConfig.clientId,
+                        apiSecret: apiConfig.apiSecret,
+                        timeRange: currentFilter
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                updateDashboard(data);
+                hideLoader();
+                showAlert('success', 'Datos actualizados correctamente');
+                
+            } catch (error) {
+                hideLoader();
+                showAlert('error', 'Error al cargar los datos: ' + error.message);
+                console.error('Error:', error);
+            }
+        }
+
+        // Actualizar dashboard con los datos
+        function updateDashboard(data) {
+            // Actualizar métricas principales
+            document.getElementById('totalVisits').textContent = formatNumber(data.totalVisits || 0);
+            document.getElementById('totalEarnings').textContent = formatCurrency(data.totalEarnings || 0);
+            document.getElementById('avgCPM').textContent = formatCurrency(data.avgCPM || 0);
+            document.getElementById('activeCountries').textContent = data.activeCountries || 0;
+            
+            // Actualizar cambios porcentuales
+            document.getElementById('visitsChange').textContent = formatPercentage(data.visitsChange || 0);
+            document.getElementById('earningsChange').textContent = formatPercentage(data.earningsChange || 0);
+            document.getElementById('cpmChange').textContent = formatPercentage(data.cpmChange || 0);
+            document.getElementById('countriesChange').textContent = '+' + (data.countriesChange || 0);
+            
+            // Actualizar tabla de países
+            updateCountryTable(data.countryStats || []);
+        }
+
+        // Actualizar tabla de países
+        function updateCountryTable(countryStats) {
+            const tbody = document.getElementById('countryStatsBody');
+            tbody.innerHTML = '';
+            
+            if (countryStats.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #64748b;">No hay datos disponibles</td></tr>';
+                return;
+            }
+            
+            countryStats.forEach(country => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>
+                        <div class="country-cell">
+                            <div class="flag">${country.flag || country.code}</div>
+                            <span>${country.name}</span>
+                        </div>
+                    </td>
+                    <td>${formatNumber(country.visits)}</td>
+                    <td class="earnings">${formatCurrency(country.earnings)}</td>
+                    <td class="cpm">${formatCurrency(country.cpm)}</td>
+                    <td>${country.percentage}%</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // Funciones de formato
+        function formatNumber(num) {
+            return new Intl.NumberFormat('es-ES').format(num);
+        }
+
+        function formatCurrency(num) {
+            return new Intl.NumberFormat('es-ES', {
+                style: 'currency',
+                currency: 'USD',
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }).format(num);
+        }
+
+        function formatPercentage(num) {
+            const prefix = num >= 0 ? '+' : '';
+            return prefix + num.toFixed(1) + '%';
+        }
+
+        // Actualización automática
+        function startAutoRefresh() {
+            if (refreshTimer) {
+                clearInterval(refreshTimer);
+            }
+            
+            refreshTimer = setInterval(() => {
+                loadDashboard();
+            }, apiConfig.refreshInterval * 1000);
+        }
+
+        // Actualización manual
+        function refreshData() {
+            loadDashboard();
+        }
+
+        // Cerrar modal al hacer clic fuera
+        window.onclick = function(event) {
+            const modal = document.getElementById('settingsModal');
+            if (event.target === modal) {
+                closeSettings();
+            }
+        }
+
+        // Timeout de sesión
+        let sessionTimeout;
+        const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutos
+
+        function resetSessionTimeout() {
+            clearTimeout(sessionTimeout);
+            sessionTimeout = setTimeout(() => {
+                showAlert('error', 'Tu sesión ha expirado. Serás redirigido al login.');
+                setTimeout(() => {
+                    logout();
+                }, 3000);
+            }, SESSION_TIMEOUT);
+        }
+
+        // Resetear timeout en cada interacción
+        document.addEventListener('click', resetSessionTimeout);
+        document.addEventListener('keypress', resetSessionTimeout);
+        
+        // Iniciar timeout
+        resetSessionTimeout();
+    </script>
+</body>
+</html>
