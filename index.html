@@ -1,3 +1,23 @@
+<?php
+// Configurar headers correctos
+header('Content-Type: text/html; charset=UTF-8');
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: SAMEORIGIN');
+header('X-XSS-Protection: 1; mode=block');
+
+// Verificar si el usuario está autenticado
+session_start();
+$isAuthenticated = isset($_SESSION['user_id']) && isset($_SESSION['login_time']);
+
+// Si no está autenticado, redirigir al login
+if (!$isAuthenticated) {
+    header('Location: login.html');
+    exit();
+}
+
+// Obtener información del usuario
+$userName = $_SESSION['user_name'] ?? $_SESSION['user_email'] ?? 'Usuario';
+?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -74,6 +94,23 @@
             0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
             70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
             100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+
+        /* Selector de cuenta en header */
+        #headerAccountSelector {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #e4e4e7;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        #headerAccountSelector:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.2);
         }
 
         /* Tarjetas de Métricas */
@@ -311,7 +348,7 @@
             background: #1e293b;
             border-radius: 16px;
             padding: 2rem;
-            max-width: 500px;
+            max-width: 700px;
             width: 100%;
             max-height: 90vh;
             overflow-y: auto;
@@ -353,7 +390,7 @@
             font-size: 0.875rem;
         }
 
-        input {
+        input, select {
             width: 100%;
             background: rgba(255, 255, 255, 0.05);
             border: 1px solid rgba(255, 255, 255, 0.1);
@@ -364,7 +401,7 @@
             transition: all 0.3s ease;
         }
 
-        input:focus {
+        input:focus, select:focus {
             outline: none;
             border-color: #60a5fa;
             background: rgba(255, 255, 255, 0.08);
@@ -408,6 +445,82 @@
             color: #86efac;
         }
 
+        /* Estilos para cuentas múltiples */
+        .account-item {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+
+        .account-item:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .account-item.active {
+            border-color: #60a5fa;
+            background: rgba(96, 165, 250, 0.1);
+        }
+
+        .account-info {
+            flex: 1;
+        }
+
+        .account-name {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .account-id {
+            font-size: 0.875rem;
+            color: #64748b;
+        }
+
+        .account-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .account-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #e4e4e7;
+            padding: 0.5rem 0.75rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: all 0.3s ease;
+        }
+
+        .account-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .account-btn.danger {
+            color: #ef4444;
+            border-color: rgba(239, 68, 68, 0.2);
+        }
+
+        .account-btn.danger:hover {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: rgba(239, 68, 68, 0.3);
+        }
+
+        .account-badge {
+            background: #10b981;
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
         /* Responsive */
         @media (max-width: 768px) {
             .header-content {
@@ -431,6 +544,16 @@
                 padding: 0.75rem 0.5rem;
                 font-size: 0.875rem;
             }
+
+            .account-item {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .account-actions {
+                width: 100%;
+                justify-content: space-between;
+            }
         }
     </style>
 </head>
@@ -444,10 +567,15 @@
     <header class="header">
         <div class="container">
             <div class="header-content">
-                <h1>Dashboard Trafficstars</h1>
+                <div style="display: flex; align-items: center; gap: 1.5rem;">
+                    <h1>Dashboard Trafficstars</h1>
+                    <select id="headerAccountSelector" onchange="quickSwitchAccount()">
+                        <option value="">Seleccionar cuenta...</option>
+                    </select>
+                </div>
                 <div class="user-info">
                     <div class="status-indicator"></div>
-                    <span id="userName">Usuario</span>
+                    <span id="userName"><?php echo htmlspecialchars($userName); ?></span>
                     <button class="filter-btn" onclick="openSettings()">⚙️ Configuración</button>
                     <button class="filter-btn" onclick="logout()" style="background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.2);">🚪 Cerrar Sesión</button>
                 </div>
@@ -544,181 +672,373 @@
                         </tr>
                     </thead>
                     <tbody id="countryStatsBody">
-                        <!-- Los datos se cargarán dinámicamente -->
+                        <tr>
+                            <td colspan="5" style="text-align: center; color: #64748b;">No hay datos disponibles</td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
         </div>
     </main>
 
-    <!-- Modal de Configuración -->
+    <!-- Modal de Configuración de Cuentas Múltiples -->
     <div class="modal" id="settingsModal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3 class="modal-title">Configuración de API</h3>
+                <h3 class="modal-title">Configuración de Cuentas TrafficStars</h3>
                 <button class="close-btn" onclick="closeSettings()">×</button>
             </div>
             
-            <form id="settingsForm" onsubmit="saveSettings(event)">
-                <div class="form-group">
-                    <label for="clientId">ID de Cliente</label>
-                    <input type="text" id="clientId" placeholder="Ingresa tu Client ID" required>
+            <!-- Selector de cuenta -->
+            <div class="form-group">
+                <label>Cuenta Activa</label>
+                <div style="display: flex; gap: 1rem; align-items: center;">
+                    <select id="accountSelector" onchange="switchAccount()" style="flex: 1;">
+                        <option value="">Seleccionar cuenta...</option>
+                    </select>
+                    <button class="filter-btn" onclick="showAddAccountForm()">+ Nueva Cuenta</button>
                 </div>
-                
-                <div class="form-group">
-                    <label for="apiSecret">Clave API Secreta</label>
-                    <input type="password" id="apiSecret" placeholder="Ingresa tu API Secret" required>
+            </div>
+
+            <!-- Formulario para agregar nueva cuenta -->
+            <div id="addAccountForm" style="display: none;">
+                <div style="background: rgba(96, 165, 250, 0.1); border: 1px solid rgba(96, 165, 250, 0.2); border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0;">
+                    <h4 style="margin-bottom: 1rem;">Agregar Nueva Cuenta</h4>
+                    <form onsubmit="addNewAccount(event)">
+                        <div class="form-group">
+                            <label for="newAccountName">Nombre de la Cuenta</label>
+                            <input type="text" id="newAccountName" placeholder="Ej: Cuenta Principal" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="newClientId">ID de Cliente</label>
+                            <input type="text" id="newClientId" placeholder="Ingresa tu Client ID" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="newApiSecret">Clave API Secreta (Token JWT)</label>
+                            <input type="password" id="newApiSecret" placeholder="Ingresa tu API Secret" required>
+                        </div>
+                        
+                        <div style="display: flex; gap: 1rem;">
+                            <button type="submit" class="btn-primary" style="flex: 1;">Agregar Cuenta</button>
+                            <button type="button" class="filter-btn" onclick="hideAddAccountForm()" style="background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.2);">Cancelar</button>
+                        </div>
+                    </form>
                 </div>
-                
+            </div>
+
+            <!-- Lista de cuentas existentes -->
+            <div id="accountsList" style="margin-top: 2rem;">
+                <h4 style="margin-bottom: 1rem;">Cuentas Configuradas</h4>
+                <div id="accountsContainer">
+                    <p style="text-align: center; color: #64748b;">No hay cuentas configuradas</p>
+                </div>
+            </div>
+
+            <!-- Configuración general -->
+            <div style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid rgba(255, 255, 255, 0.1);">
+                <h4 style="margin-bottom: 1rem;">Configuración General</h4>
                 <div class="form-group">
                     <label for="refreshInterval">Intervalo de Actualización (segundos)</label>
-                    <input type="number" id="refreshInterval" value="300" min="60" max="3600">
+                    <input type="number" id="refreshInterval" value="300" min="60" max="3600" onchange="updateRefreshInterval()">
                 </div>
-                
-                <button type="submit" class="btn-primary">Guardar Configuración</button>
-            </form>
+            </div>
         </div>
     </div>
 
-    <!-- JavaScript -->
     <script>
         // Variables globales
+        let accounts = [];
+        let activeAccountId = null;
+        let currentFilter = 'today';
+        let refreshTimer = null;
+        let currentUser = <?php echo json_encode([
+            'id' => $_SESSION['user_id'],
+            'email' => $_SESSION['user_email'],
+            'name' => $_SESSION['user_name'],
+            'role' => $_SESSION['user_role']
+        ]); ?>;
         let apiConfig = {
             clientId: '',
             apiSecret: '',
             refreshInterval: 300
         };
 
-        let currentFilter = 'today';
-        let refreshTimer = null;
-        let currentUser = null;
-
-        // Verificar autenticación al cargar
-        async function checkAuthentication() {
-            try {
-                const response = await fetch('auth.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        action: 'check'
-                    })
-                });
-
-                const data = await response.json();
-
-                if (!data.authenticated) {
-                    // No autenticado, redirigir al login
-                    window.location.href = 'login.html';
-                    return false;
-                }
-
-                // Usuario autenticado
-                currentUser = data.user;
-                document.getElementById('userName').textContent = currentUser.name || currentUser.email;
-                
-                // Cargar credenciales API del usuario
-                await loadUserApiCredentials();
-                
-                return true;
-            } catch (error) {
-                console.error('Error verificando autenticación:', error);
-                window.location.href = 'login.html';
-                return false;
+        // Inicializar el sistema de cuentas múltiples
+        function initializeAccounts() {
+            // Cargar cuentas desde localStorage
+            const savedAccounts = localStorage.getItem('ts_accounts');
+            if (savedAccounts) {
+                accounts = JSON.parse(savedAccounts);
             }
-        }
-
-        // Cargar credenciales API del usuario
-        async function loadUserApiCredentials() {
-            try {
-                const response = await fetch('auth.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        action: 'get_api_credentials'
-                    })
-                });
-
-                const data = await response.json();
-
-                if (data.success && data.credentials) {
-                    apiConfig.clientId = data.credentials.client_id || '';
-                    apiConfig.apiSecret = data.credentials.api_secret || '';
-                    
-                    // También verificar localStorage por si hay configuración local
-                    const localClientId = localStorage.getItem('ts_client_id');
-                    const localApiSecret = localStorage.getItem('ts_api_secret');
-                    
-                    if (!apiConfig.clientId && localClientId) {
-                        apiConfig.clientId = localClientId;
-                    }
-                    if (!apiConfig.apiSecret && localApiSecret) {
-                        apiConfig.apiSecret = localApiSecret;
-                    }
-                    
-                    apiConfig.refreshInterval = parseInt(localStorage.getItem('ts_refresh_interval') || '300');
-                }
-            } catch (error) {
-                console.error('Error cargando credenciales:', error);
-            }
-        }
-
-        // Función de logout
-        async function logout() {
-            if (confirm('¿Estás seguro de que deseas cerrar sesión?')) {
-                try {
-                    await fetch('auth.php', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            action: 'logout'
-                        })
-                    });
-
-                    // Limpiar almacenamiento local
-                    sessionStorage.clear();
-                    localStorage.removeItem('auth_token');
-                    
-                    // Redirigir al login
-                    window.location.href = 'login.html';
-                } catch (error) {
-                    console.error('Error al cerrar sesión:', error);
-                    // Redirigir de todos modos
-                    window.location.href = 'login.html';
-                }
-            }
-        }
-
-        // Inicialización
-        document.addEventListener('DOMContentLoaded', async function() {
-            // Primero verificar autenticación
-            const isAuthenticated = await checkAuthentication();
             
-            if (!isAuthenticated) {
-                return; // Ya fue redirigido al login
+            // Cargar cuenta activa
+            activeAccountId = localStorage.getItem('ts_active_account');
+            
+            // Si no hay cuentas, crear una por defecto con las credenciales guardadas
+            if (accounts.length === 0) {
+                const clientId = localStorage.getItem('ts_client_id');
+                const apiSecret = localStorage.getItem('ts_api_secret');
+                
+                if (clientId && apiSecret) {
+                    accounts.push({
+                        id: generateAccountId(),
+                        name: 'Cuenta Principal',
+                        clientId: clientId,
+                        apiSecret: apiSecret,
+                        createdAt: new Date().toISOString()
+                    });
+                    saveAccounts();
+                }
             }
+            
+            updateAccountSelector();
+            updateHeaderAccountSelector();
+            updateAccountsList();
+        }
 
-            // Continuar con la inicialización normal
-            if (!apiConfig.clientId || !apiConfig.apiSecret) {
-                openSettings();
-                showAlert('error', 'Por favor configura tus credenciales de API');
-            } else {
-                loadDashboard();
-                startAutoRefresh();
+        // Generar ID único para cuenta
+        function generateAccountId() {
+            return 'acc_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        }
+
+        // Guardar cuentas en localStorage
+        function saveAccounts() {
+            localStorage.setItem('ts_accounts', JSON.stringify(accounts));
+            if (activeAccountId) {
+                localStorage.setItem('ts_active_account', activeAccountId);
             }
-        });
+        }
+
+        // Actualizar selector de cuentas
+        function updateAccountSelector() {
+            const selector = document.getElementById('accountSelector');
+            if (!selector) return;
+            
+            selector.innerHTML = '<option value="">Seleccionar cuenta...</option>';
+            
+            accounts.forEach(account => {
+                const option = document.createElement('option');
+                option.value = account.id;
+                option.textContent = account.name;
+                if (account.id === activeAccountId) {
+                    option.selected = true;
+                }
+                selector.appendChild(option);
+            });
+        }
+
+        // Actualizar selector de cuentas en el header
+        function updateHeaderAccountSelector() {
+            const selector = document.getElementById('headerAccountSelector');
+            if (!selector) return;
+            
+            selector.innerHTML = '<option value="">Seleccionar cuenta...</option>';
+            
+            accounts.forEach(account => {
+                const option = document.createElement('option');
+                option.value = account.id;
+                option.textContent = account.name;
+                if (account.id === activeAccountId) {
+                    option.selected = true;
+                }
+                selector.appendChild(option);
+            });
+        }
+
+        // Cambio rápido de cuenta desde el header
+        function quickSwitchAccount() {
+            const selector = document.getElementById('headerAccountSelector');
+            const newAccountId = selector.value;
+            
+            if (newAccountId && newAccountId !== activeAccountId) {
+                activeAccountId = newAccountId;
+                const account = accounts.find(acc => acc.id === activeAccountId);
+                if (account) {
+                    apiConfig.clientId = account.clientId;
+                    apiConfig.apiSecret = account.apiSecret;
+                    saveAccounts();
+                    loadDashboard();
+                    showAlert('success', `Cambiado a: ${account.name}`);
+                }
+            }
+        }
+
+        // Actualizar lista de cuentas
+        function updateAccountsList() {
+            const container = document.getElementById('accountsContainer');
+            if (!container) return;
+            
+            container.innerHTML = '';
+            
+            if (accounts.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #64748b;">No hay cuentas configuradas</p>';
+                return;
+            }
+            
+            accounts.forEach(account => {
+                const accountDiv = document.createElement('div');
+                accountDiv.className = 'account-item' + (account.id === activeAccountId ? ' active' : '');
+                
+                accountDiv.innerHTML = `
+                    <div class="account-info">
+                        <div class="account-name">${account.name}</div>
+                        <div class="account-id">ID: ${account.clientId.substr(0, 20)}...</div>
+                    </div>
+                    <div class="account-actions">
+                        ${account.id === activeAccountId ? '<span class="account-badge">Activa</span>' : ''}
+                        <button class="account-btn" onclick="editAccount('${account.id}')">Editar</button>
+                        <button class="account-btn danger" onclick="deleteAccount('${account.id}')">Eliminar</button>
+                    </div>
+                `;
+                
+                container.appendChild(accountDiv);
+            });
+        }
+
+        // Cambiar cuenta activa
+        function switchAccount() {
+            const selector = document.getElementById('accountSelector');
+            activeAccountId = selector.value;
+            
+            if (activeAccountId) {
+                const account = accounts.find(acc => acc.id === activeAccountId);
+                if (account) {
+                    // Actualizar configuración global con los datos de la cuenta
+                    apiConfig.clientId = account.clientId;
+                    apiConfig.apiSecret = account.apiSecret;
+                    
+                    saveAccounts();
+                    updateAccountsList();
+                    updateHeaderAccountSelector();
+                    loadDashboard();
+                    showAlert('success', `Cuenta cambiada a: ${account.name}`);
+                }
+            }
+        }
+
+        // Mostrar formulario para agregar cuenta
+        function showAddAccountForm() {
+            document.getElementById('addAccountForm').style.display = 'block';
+            document.getElementById('newAccountName').focus();
+        }
+
+        // Ocultar formulario para agregar cuenta
+        function hideAddAccountForm() {
+            document.getElementById('addAccountForm').style.display = 'none';
+            document.getElementById('newAccountName').value = '';
+            document.getElementById('newClientId').value = '';
+            document.getElementById('newApiSecret').value = '';
+        }
+
+        // Agregar nueva cuenta
+        function addNewAccount(event) {
+            event.preventDefault();
+            
+            const name = document.getElementById('newAccountName').value.trim();
+            const clientId = document.getElementById('newClientId').value.trim();
+            const apiSecret = document.getElementById('newApiSecret').value.trim();
+            
+            if (!name || !clientId || !apiSecret) {
+                showAlert('error', 'Todos los campos son requeridos');
+                return;
+            }
+            
+            // Verificar si ya existe una cuenta con el mismo clientId
+            if (accounts.some(acc => acc.clientId === clientId)) {
+                showAlert('error', 'Ya existe una cuenta con este ID de Cliente');
+                return;
+            }
+            
+            const newAccount = {
+                id: generateAccountId(),
+                name: name,
+                clientId: clientId,
+                apiSecret: apiSecret,
+                createdAt: new Date().toISOString()
+            };
+            
+            accounts.push(newAccount);
+            activeAccountId = newAccount.id;
+            
+            // Actualizar configuración global
+            apiConfig.clientId = clientId;
+            apiConfig.apiSecret = apiSecret;
+            
+            saveAccounts();
+            updateAccountSelector();
+            updateHeaderAccountSelector();
+            updateAccountsList();
+            hideAddAccountForm();
+            
+            showAlert('success', `Cuenta "${name}" agregada correctamente`);
+            loadDashboard();
+        }
+
+        // Editar cuenta
+        function editAccount(accountId) {
+            const account = accounts.find(acc => acc.id === accountId);
+            if (!account) return;
+            
+            const newName = prompt('Nuevo nombre para la cuenta:', account.name);
+            if (newName && newName.trim()) {
+                account.name = newName.trim();
+                saveAccounts();
+                updateAccountSelector();
+                updateHeaderAccountSelector();
+                updateAccountsList();
+                showAlert('success', 'Cuenta actualizada correctamente');
+            }
+        }
+
+        // Eliminar cuenta
+        function deleteAccount(accountId) {
+            const account = accounts.find(acc => acc.id === accountId);
+            if (!account) return;
+            
+            if (!confirm(`¿Estás seguro de eliminar la cuenta "${account.name}"?`)) {
+                return;
+            }
+            
+            accounts = accounts.filter(acc => acc.id !== accountId);
+            
+            // Si se eliminó la cuenta activa, seleccionar la primera disponible
+            if (accountId === activeAccountId) {
+                activeAccountId = accounts.length > 0 ? accounts[0].id : null;
+                if (activeAccountId) {
+                    const newActiveAccount = accounts[0];
+                    apiConfig.clientId = newActiveAccount.clientId;
+                    apiConfig.apiSecret = newActiveAccount.apiSecret;
+                }
+            }
+            
+            saveAccounts();
+            updateAccountSelector();
+            updateHeaderAccountSelector();
+            updateAccountsList();
+            
+            showAlert('success', 'Cuenta eliminada correctamente');
+            
+            if (accounts.length > 0) {
+                loadDashboard();
+            }
+        }
+
+        // Actualizar intervalo de actualización
+        function updateRefreshInterval() {
+            apiConfig.refreshInterval = parseInt(document.getElementById('refreshInterval').value);
+            localStorage.setItem('ts_refresh_interval', apiConfig.refreshInterval);
+            startAutoRefresh();
+            showAlert('success', 'Intervalo de actualización guardado');
+        }
 
         // Funciones de UI
         function openSettings() {
             document.getElementById('settingsModal').style.display = 'flex';
-            document.getElementById('clientId').value = apiConfig.clientId;
-            document.getElementById('apiSecret').value = apiConfig.apiSecret;
-            document.getElementById('refreshInterval').value = apiConfig.refreshInterval;
+            document.getElementById('refreshInterval').value = apiConfig.refreshInterval || 300;
+            updateAccountSelector();
+            updateAccountsList();
         }
 
         function closeSettings() {
@@ -736,48 +1056,14 @@
         function showAlert(type, message) {
             const alertId = type === 'error' ? 'errorAlert' : 'successAlert';
             const alert = document.getElementById(alertId);
-            alert.textContent = message;
-            alert.style.display = 'block';
-            
-            setTimeout(() => {
-                alert.style.display = 'none';
-            }, 5000);
-        }
-
-        // Guardar configuración
-        async function saveSettings(event) {
-            event.preventDefault();
-            
-            apiConfig.clientId = document.getElementById('clientId').value;
-            apiConfig.apiSecret = document.getElementById('apiSecret').value;
-            apiConfig.refreshInterval = parseInt(document.getElementById('refreshInterval').value);
-            
-            // Guardar en localStorage
-            localStorage.setItem('ts_client_id', apiConfig.clientId);
-            localStorage.setItem('ts_api_secret', apiConfig.apiSecret);
-            localStorage.setItem('ts_refresh_interval', apiConfig.refreshInterval);
-            
-            // También actualizar en el servidor
-            try {
-                await fetch('auth.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        action: 'update_api_credentials',
-                        client_id: apiConfig.clientId,
-                        api_secret: apiConfig.apiSecret
-                    })
-                });
-            } catch (error) {
-                console.error('Error actualizando credenciales en servidor:', error);
+            if (alert) {
+                alert.textContent = message;
+                alert.style.display = 'block';
+                
+                setTimeout(() => {
+                    alert.style.display = 'none';
+                }, 5000);
             }
-            
-            closeSettings();
-            showAlert('success', 'Configuración guardada correctamente');
-            loadDashboard();
-            startAutoRefresh();
         }
 
         // Cambiar filtro de tiempo
@@ -796,6 +1082,7 @@
         // Cargar datos del dashboard
         async function loadDashboard() {
             if (!apiConfig.clientId || !apiConfig.apiSecret) {
+                console.log('No hay credenciales configuradas');
                 return;
             }
             
@@ -823,7 +1110,13 @@
                 
                 updateDashboard(data);
                 hideLoader();
-                showAlert('success', 'Datos actualizados correctamente');
+                
+                // Solo mostrar mensaje de éxito si no es demo
+                if (!data.isDemo) {
+                    showAlert('success', 'Datos actualizados correctamente');
+                } else if (data.message) {
+                    showAlert('error', data.message);
+                }
                 
             } catch (error) {
                 hideLoader();
@@ -841,18 +1134,45 @@
             document.getElementById('activeCountries').textContent = data.activeCountries || 0;
             
             // Actualizar cambios porcentuales
-            document.getElementById('visitsChange').textContent = formatPercentage(data.visitsChange || 0);
-            document.getElementById('earningsChange').textContent = formatPercentage(data.earningsChange || 0);
-            document.getElementById('cpmChange').textContent = formatPercentage(data.cpmChange || 0);
-            document.getElementById('countriesChange').textContent = '+' + (data.countriesChange || 0);
+            updatePercentageChange('visitsChange', data.visitsChange || 0);
+            updatePercentageChange('earningsChange', data.earningsChange || 0);
+            updatePercentageChange('cpmChange', data.cpmChange || 0);
+            updatePercentageChange('countriesChange', data.countriesChange || 0, true);
             
             // Actualizar tabla de países
             updateCountryTable(data.countryStats || []);
         }
 
+        // Actualizar cambio porcentual
+        function updatePercentageChange(elementId, value, isCount = false) {
+            const element = document.getElementById(elementId);
+            if (!element) return;
+            
+            const parentElement = element.parentElement;
+            if (isCount) {
+                element.textContent = '+' + value;
+            } else {
+                element.textContent = formatPercentage(value);
+            }
+            
+            // Actualizar color según si es positivo o negativo
+            if (parentElement) {
+                parentElement.classList.remove('positive', 'negative');
+                parentElement.classList.add(value >= 0 ? 'positive' : 'negative');
+                
+                // Actualizar icono
+                const icon = parentElement.querySelector('span:first-child');
+                if (icon) {
+                    icon.textContent = value >= 0 ? '↑' : '↓';
+                }
+            }
+        }
+
         // Actualizar tabla de países
         function updateCountryTable(countryStats) {
             const tbody = document.getElementById('countryStatsBody');
+            if (!tbody) return;
+            
             tbody.innerHTML = '';
             
             if (countryStats.length === 0) {
@@ -913,6 +1233,34 @@
             loadDashboard();
         }
 
+        // Función de logout
+        async function logout() {
+            if (confirm('¿Estás seguro de que deseas cerrar sesión?')) {
+                try {
+                    await fetch('auth.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            action: 'logout'
+                        })
+                    });
+
+                    // Limpiar almacenamiento local
+                    sessionStorage.clear();
+                    localStorage.removeItem('auth_token');
+                    
+                    // Redirigir al login
+                    window.location.href = 'login.html';
+                } catch (error) {
+                    console.error('Error al cerrar sesión:', error);
+                    // Redirigir de todos modos
+                    window.location.href = 'login.html';
+                }
+            }
+        }
+
         // Cerrar modal al hacer clic fuera
         window.onclick = function(event) {
             const modal = document.getElementById('settingsModal');
@@ -938,9 +1286,38 @@
         // Resetear timeout en cada interacción
         document.addEventListener('click', resetSessionTimeout);
         document.addEventListener('keypress', resetSessionTimeout);
-        
-        // Iniciar timeout
-        resetSessionTimeout();
+
+        // Inicialización
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Dashboard iniciando...');
+            
+            // Inicializar el sistema
+            initializeAccounts();
+            
+            // Cargar intervalo de actualización
+            apiConfig.refreshInterval = parseInt(localStorage.getItem('ts_refresh_interval') || '300');
+            
+            // Si no hay cuentas configuradas, abrir configuración
+            if (!activeAccountId || accounts.length === 0) {
+                console.log('No hay cuentas configuradas');
+                openSettings();
+                showAlert('error', 'Por favor configura al menos una cuenta de TrafficStars');
+            } else {
+                console.log('Cargando cuenta activa:', activeAccountId);
+                // Cargar configuración de la cuenta activa
+                const activeAccount = accounts.find(acc => acc.id === activeAccountId);
+                if (activeAccount) {
+                    apiConfig.clientId = activeAccount.clientId;
+                    apiConfig.apiSecret = activeAccount.apiSecret;
+                    console.log('Configuración cargada, iniciando dashboard...');
+                    loadDashboard();
+                    startAutoRefresh();
+                }
+            }
+            
+            // Iniciar timeout de sesión
+            resetSessionTimeout();
+        });
     </script>
 </body>
 </html>
