@@ -3,9 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Dashboard Trafficstars</title>
+    <meta name="description" content="Accede a tu Dashboard TrafficStars para ver estadísticas en tiempo real">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Login - Dashboard TrafficStars</title>
     
     <style>
+        /* Reset y variables CSS */
+        :root {
+            --primary-gradient: linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%);
+            --bg-dark: #0f0f23;
+            --bg-card: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            --text-primary: #e4e4e7;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --border-color: rgba(255, 255, 255, 0.1);
+            --border-hover: rgba(255, 255, 255, 0.2);
+            --success: #10b981;
+            --error: #ef4444;
+            --warning: #f59e0b;
+            --info: #60a5fa;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -14,8 +32,8 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: #0f0f23;
-            color: #e4e4e7;
+            background: var(--bg-dark);
+            color: var(--text-primary);
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -69,8 +87,8 @@
 
         /* Contenedor de login */
         .login-container {
-            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
             border-radius: 24px;
             padding: 3rem;
             width: 100%;
@@ -78,6 +96,7 @@
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
             position: relative;
             overflow: hidden;
+            backdrop-filter: blur(10px);
         }
 
         .login-container::before {
@@ -87,7 +106,7 @@
             left: 0;
             right: 0;
             height: 4px;
-            background: linear-gradient(90deg, #60a5fa, #a78bfa);
+            background: var(--primary-gradient);
         }
 
         /* Logo y título */
@@ -99,7 +118,7 @@
         .logo {
             width: 80px;
             height: 80px;
-            background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%);
+            background: var(--primary-gradient);
             border-radius: 20px;
             display: flex;
             align-items: center;
@@ -108,17 +127,18 @@
             font-size: 2rem;
             box-shadow: 0 10px 25px -5px rgba(96, 165, 250, 0.3);
             animation: pulse 3s ease-in-out infinite;
+            position: relative;
         }
 
         @keyframes pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.05); }
+            0%, 100% { transform: scale(1); box-shadow: 0 10px 25px -5px rgba(96, 165, 250, 0.3); }
+            50% { transform: scale(1.05); box-shadow: 0 10px 30px -5px rgba(96, 165, 250, 0.5); }
         }
 
         h1 {
             font-size: 2rem;
             font-weight: 700;
-            background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%);
+            background: var(--primary-gradient);
             background-clip: text;
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
@@ -126,7 +146,7 @@
         }
 
         .subtitle {
-            color: #94a3b8;
+            color: var(--text-secondary);
             font-size: 0.875rem;
         }
 
@@ -138,7 +158,7 @@
         label {
             display: block;
             margin-bottom: 0.5rem;
-            color: #94a3b8;
+            color: var(--text-secondary);
             font-size: 0.875rem;
             font-weight: 500;
         }
@@ -152,15 +172,17 @@
             left: 1rem;
             top: 50%;
             transform: translateY(-50%);
-            color: #64748b;
+            color: var(--text-muted);
             font-size: 1.25rem;
+            pointer-events: none;
         }
 
-        input {
+        input[type="email"],
+        input[type="password"] {
             width: 100%;
             background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            color: #e4e4e7;
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
             padding: 0.875rem 1rem 0.875rem 3rem;
             border-radius: 12px;
             font-size: 1rem;
@@ -169,9 +191,13 @@
 
         input:focus {
             outline: none;
-            border-color: #60a5fa;
+            border-color: var(--info);
             background: rgba(255, 255, 255, 0.08);
             box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.1);
+        }
+
+        input:invalid:not(:placeholder-shown) {
+            border-color: var(--error);
         }
 
         /* Checkbox personalizado */
@@ -201,7 +227,7 @@
             width: 20px;
             height: 20px;
             background: rgba(255, 255, 255, 0.05);
-            border: 2px solid rgba(255, 255, 255, 0.2);
+            border: 2px solid var(--border-color);
             border-radius: 6px;
             margin-right: 0.75rem;
             position: relative;
@@ -209,7 +235,7 @@
         }
 
         .checkbox-label input[type="checkbox"]:checked + .checkbox-custom {
-            background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%);
+            background: var(--primary-gradient);
             border-color: transparent;
         }
 
@@ -231,7 +257,7 @@
         }
 
         .forgot-password {
-            color: #60a5fa;
+            color: var(--info);
             text-decoration: none;
             font-size: 0.875rem;
             transition: color 0.3s ease;
@@ -239,12 +265,13 @@
 
         .forgot-password:hover {
             color: #93c5fd;
+            text-decoration: underline;
         }
 
         /* Botón de login */
         .btn-login {
             width: 100%;
-            background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%);
+            background: var(--primary-gradient);
             color: white;
             border: none;
             padding: 1rem;
@@ -257,12 +284,12 @@
             overflow: hidden;
         }
 
-        .btn-login:hover {
+        .btn-login:hover:not(:disabled) {
             transform: translateY(-2px);
             box-shadow: 0 10px 25px -5px rgba(96, 165, 250, 0.5);
         }
 
-        .btn-login:active {
+        .btn-login:active:not(:disabled) {
             transform: translateY(0);
         }
 
@@ -294,6 +321,7 @@
             margin-bottom: 1.5rem;
             display: none;
             animation: slideDown 0.3s ease-out;
+            font-size: 0.875rem;
         }
 
         @keyframes slideDown {
@@ -334,12 +362,12 @@
         }
 
         .login-footer p {
-            color: #64748b;
+            color: var(--text-muted);
             font-size: 0.875rem;
         }
 
         .login-footer a {
-            color: #60a5fa;
+            color: var(--info);
             text-decoration: none;
             font-weight: 500;
             transition: color 0.3s ease;
@@ -347,6 +375,23 @@
 
         .login-footer a:hover {
             color: #93c5fd;
+            text-decoration: underline;
+        }
+
+        /* Indicador de seguridad */
+        .security-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .security-indicator svg {
+            width: 16px;
+            height: 16px;
+            color: var(--success);
         }
 
         /* Responsive */
@@ -358,9 +403,15 @@
             h1 {
                 font-size: 1.5rem;
             }
+
+            .checkbox-wrapper {
+                flex-direction: column;
+                gap: 1rem;
+                align-items: flex-start;
+            }
         }
 
-        /* Modo demo */
+        /* Modo demo - Remover en producción */
         .demo-credentials {
             background: rgba(96, 165, 250, 0.1);
             border: 1px solid rgba(96, 165, 250, 0.2);
@@ -371,7 +422,23 @@
         }
 
         .demo-credentials strong {
-            color: #60a5fa;
+            color: var(--info);
+        }
+
+        /* Animación de entrada */
+        .login-container {
+            animation: fadeInUp 0.5s ease-out;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
     </style>
 </head>
@@ -381,7 +448,7 @@
     <div class="login-container">
         <div class="login-header">
             <div class="logo">📊</div>
-            <h1>Trafficstars</h1>
+            <h1>TrafficStars</h1>
             <p class="subtitle">Accede a tu dashboard de estadísticas</p>
         </div>
 
@@ -390,14 +457,14 @@
         <div class="alert alert-success" id="successAlert"></div>
         <div class="alert alert-info" id="infoAlert"></div>
 
-        <!-- Credenciales de demo (eliminar en producción) -->
+        <!-- Credenciales de demo - REMOVER EN PRODUCCIÓN -->
         <div class="demo-credentials" id="demoInfo">
             <strong>🔐 Credenciales de prueba:</strong><br>
             Usuario: admin@trafficstars.com<br>
             Contraseña: admin123
         </div>
 
-        <form id="loginForm" onsubmit="handleLogin(event)">
+        <form id="loginForm" onsubmit="handleLogin(event)" novalidate>
             <div class="form-group">
                 <label for="email">Correo Electrónico</label>
                 <div class="input-wrapper">
@@ -409,6 +476,7 @@
                         placeholder="tu@email.com" 
                         required
                         autocomplete="email"
+                        pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$"
                     >
                 </div>
             </div>
@@ -424,6 +492,7 @@
                         placeholder="••••••••" 
                         required
                         autocomplete="current-password"
+                        minlength="6"
                     >
                 </div>
             </div>
@@ -434,43 +503,151 @@
                     <span class="checkbox-custom"></span>
                     <span>Recordarme</span>
                 </label>
-                <a href="#" class="forgot-password" onclick="showForgotPassword()">¿Olvidaste tu contraseña?</a>
+                <a href="#" class="forgot-password" onclick="showForgotPassword(event)">¿Olvidaste tu contraseña?</a>
             </div>
 
             <button type="submit" class="btn-login" id="loginBtn">
                 <span id="btnText">Iniciar Sesión</span>
                 <div class="btn-loader" id="btnLoader"></div>
             </button>
+
+            <div class="security-indicator">
+                <svg fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                </svg>
+                <span>Conexión segura</span>
+            </div>
         </form>
 
         <div class="login-footer">
-            <p>¿No tienes cuenta? <a href="#" onclick="showRegisterInfo()">Regístrate aquí</a></p>
+            <p>¿No tienes cuenta? <a href="#" onclick="showRegisterInfo(event)">Regístrate aquí</a></p>
         </div>
     </div>
 
     <script>
         // Variables globales
         let loginAttempts = 0;
-        const maxAttempts = 3;
+        const MAX_ATTEMPTS = 5;
+        const LOCKOUT_TIME = 300000; // 5 minutos en ms
+        let isLocked = false;
+        let lockoutTimer = null;
+
+        // Verificar si hay una sesión activa al cargar
+        document.addEventListener('DOMContentLoaded', function() {
+            checkExistingSession();
+            
+            // Focus en el primer campo
+            document.getElementById('email').focus();
+            
+            // Verificar lockout guardado
+            checkLockoutStatus();
+        });
+
+        // Verificar sesión existente
+        async function checkExistingSession() {
+            const token = sessionStorage.getItem('auth_token') || localStorage.getItem('auth_token');
+            
+            if (token) {
+                try {
+                    const response = await fetch('auth.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            action: 'verify',
+                            token: token
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.valid) {
+                        window.location.href = 'index.php';
+                    } else {
+                        // Token inválido, limpiar
+                        sessionStorage.removeItem('auth_token');
+                        localStorage.removeItem('auth_token');
+                    }
+                } catch (error) {
+                    console.error('Error verificando token:', error);
+                }
+            }
+        }
+
+        // Verificar estado de bloqueo
+        function checkLockoutStatus() {
+            const lockoutUntil = localStorage.getItem('lockout_until');
+            if (lockoutUntil) {
+                const remainingTime = parseInt(lockoutUntil) - Date.now();
+                if (remainingTime > 0) {
+                    setLockout(remainingTime);
+                } else {
+                    localStorage.removeItem('lockout_until');
+                }
+            }
+        }
+
+        // Establecer bloqueo
+        function setLockout(duration) {
+            isLocked = true;
+            const btn = document.getElementById('loginBtn');
+            btn.disabled = true;
+            
+            const endTime = Date.now() + duration;
+            localStorage.setItem('lockout_until', endTime);
+            
+            updateLockoutMessage(duration);
+            
+            lockoutTimer = setInterval(() => {
+                const remaining = endTime - Date.now();
+                if (remaining <= 0) {
+                    clearInterval(lockoutTimer);
+                    isLocked = false;
+                    btn.disabled = false;
+                    localStorage.removeItem('lockout_until');
+                    hideAllAlerts();
+                } else {
+                    updateLockoutMessage(remaining);
+                }
+            }, 1000);
+        }
+
+        // Actualizar mensaje de bloqueo
+        function updateLockoutMessage(remaining) {
+            const minutes = Math.floor(remaining / 60000);
+            const seconds = Math.floor((remaining % 60000) / 1000);
+            showAlert('error', `Demasiados intentos. Intenta de nuevo en ${minutes}:${seconds.toString().padStart(2, '0')}`);
+        }
 
         // Manejar el envío del formulario
         async function handleLogin(event) {
             event.preventDefault();
             
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            const remember = document.getElementById('remember').checked;
-            
-            // Validación básica
-            if (!email || !password) {
-                showAlert('error', 'Por favor completa todos los campos');
+            if (isLocked) {
                 return;
             }
-
+            
+            const form = event.target;
+            const email = form.email.value.trim();
+            const password = form.password.value;
+            const remember = form.remember.checked;
+            
+            // Validación del lado del cliente
+            if (!validateEmail(email)) {
+                showAlert('error', 'Por favor ingresa un email válido');
+                return;
+            }
+            
+            if (password.length < 6) {
+                showAlert('error', 'La contraseña debe tener al menos 6 caracteres');
+                return;
+            }
+            
             // Mostrar loader
             showLoading(true);
             hideAllAlerts();
-
+            
             try {
                 const response = await fetch('auth.php', {
                     method: 'POST',
@@ -484,38 +661,38 @@
                         remember: remember
                     })
                 });
-
+                
                 const data = await response.json();
-
+                
                 if (data.success) {
+                    loginAttempts = 0;
                     showAlert('success', '¡Inicio de sesión exitoso! Redirigiendo...');
                     
-                    // Guardar token si es necesario
+                    // Guardar token
                     if (data.token) {
                         sessionStorage.setItem('auth_token', data.token);
                         if (remember) {
                             localStorage.setItem('auth_token', data.token);
                         }
                     }
-
+                    
                     // Redirigir al dashboard
                     setTimeout(() => {
-                        window.location.href = 'index.html';
-                    }, 1500);
+                        window.location.href = 'index.php';
+                    }, 1000);
                 } else {
                     loginAttempts++;
                     
-                    if (loginAttempts >= maxAttempts) {
-                        showAlert('error', 'Demasiados intentos fallidos. Por favor intenta más tarde.');
-                        disableForm(true);
-                        setTimeout(() => {
-                            loginAttempts = 0;
-                            disableForm(false);
-                        }, 60000); // Bloquear por 1 minuto
+                    if (loginAttempts >= MAX_ATTEMPTS) {
+                        setLockout(LOCKOUT_TIME);
                     } else {
                         showAlert('error', data.message || 'Credenciales incorrectas');
-                        document.getElementById('password').value = '';
-                        document.getElementById('password').focus();
+                        form.password.value = '';
+                        form.password.focus();
+                        
+                        if (loginAttempts >= MAX_ATTEMPTS - 2) {
+                            showAlert('error', `${data.message}. Te quedan ${MAX_ATTEMPTS - loginAttempts} intentos.`);
+                        }
                     }
                 }
             } catch (error) {
@@ -524,6 +701,12 @@
             } finally {
                 showLoading(false);
             }
+        }
+
+        // Validar email
+        function validateEmail(email) {
+            const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return re.test(email);
         }
 
         // Mostrar/ocultar loader
@@ -537,7 +720,9 @@
                 btnText.style.display = 'none';
                 btnLoader.style.display = 'block';
             } else {
-                btn.disabled = false;
+                if (!isLocked) {
+                    btn.disabled = false;
+                }
                 btnText.style.display = 'block';
                 btnLoader.style.display = 'none';
             }
@@ -545,16 +730,18 @@
 
         // Mostrar alertas
         function showAlert(type, message) {
+            hideAllAlerts();
             const alertId = type + 'Alert';
             const alert = document.getElementById(alertId);
             if (alert) {
                 alert.textContent = message;
                 alert.style.display = 'block';
                 
-                // Auto-ocultar después de 5 segundos
-                setTimeout(() => {
-                    alert.style.display = 'none';
-                }, 5000);
+                if (type !== 'error' || !isLocked) {
+                    setTimeout(() => {
+                        alert.style.display = 'none';
+                    }, 5000);
+                }
             }
         }
 
@@ -566,59 +753,26 @@
             });
         }
 
-        // Deshabilitar/habilitar formulario
-        function disableForm(disable) {
-            const inputs = document.querySelectorAll('input, button');
-            inputs.forEach(input => {
-                input.disabled = disable;
-            });
-        }
-
         // Recuperar contraseña
-        function showForgotPassword() {
-            showAlert('info', 'Función de recuperación de contraseña próximamente disponible');
+        function showForgotPassword(event) {
+            event.preventDefault();
+            showAlert('info', 'Por favor contacta al administrador para recuperar tu contraseña');
         }
 
         // Información de registro
-        function showRegisterInfo() {
+        function showRegisterInfo(event) {
+            event.preventDefault();
             showAlert('info', 'Por favor contacta al administrador para crear una cuenta');
         }
 
-        // Verificar si ya hay una sesión activa
-        document.addEventListener('DOMContentLoaded', function() {
-            const token = sessionStorage.getItem('auth_token') || localStorage.getItem('auth_token');
-            
-            if (token) {
-                // Verificar token
-                fetch('auth.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        action: 'verify',
-                        token: token
-                    })
-                }).then(response => response.json())
-                .then(data => {
-                    if (data.valid) {
-                        window.location.href = 'index.html';
-                    }
-                });
-            }
-
-            // Focus en el primer campo
-            document.getElementById('email').focus();
-        });
-
-        // Manejo de tecla Enter
+        // Manejo de tecla Enter para navegación entre campos
         document.addEventListener('keydown', function(event) {
-            if (event.key === 'Enter') {
+            if (event.key === 'Enter' && !event.shiftKey) {
                 const activeElement = document.activeElement;
                 if (activeElement.tagName === 'INPUT' && activeElement.type !== 'submit') {
                     event.preventDefault();
                     const form = activeElement.form;
-                    const inputs = Array.from(form.querySelectorAll('input:not([type="submit"])'));
+                    const inputs = Array.from(form.querySelectorAll('input:not([type="submit"]):not([type="checkbox"])'));
                     const index = inputs.indexOf(activeElement);
                     
                     if (index < inputs.length - 1) {
@@ -628,6 +782,11 @@
                     }
                 }
             }
+        });
+
+        // Prevenir pegado en el campo de contraseña (opcional, para mayor seguridad)
+        document.getElementById('password').addEventListener('paste', function(e) {
+            // e.preventDefault(); // Descomentar para prevenir pegado
         });
     </script>
 </body>
