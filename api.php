@@ -1,7 +1,7 @@
 <?php
 /**
- * API Handler para TrafficStars - Versión Debug
- * @version 2.1
+ * API Handler para TrafficStars - Versión con OAuth2
+ * @version 4.0
  */
 
 // Configuración
@@ -21,191 +21,189 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 class TrafficstarsAPI {
-    // URLs base posibles para la API
-    private $apiUrls = [
-        'https://api.trafficstars.com',
-        'https://api.trafficstars.com/api',
-        'https://api.trafficstars.com/v1',
-        'https://api.trafficstars.com/v2'
-    ];
-    
-    private $currentApiUrl;
+    // URLs según la documentación
+    private $authUrl = 'https://id.trafficstars.com';
+    private $apiUrl = 'https://api.trafficstars.com';
     private $clientId;
     private $apiKey;
+    private $accessToken = null;
     private $timeout = 30;
-    private $debug = true; // Activar debug
+    private $debug = true;
     
     public function __construct($clientId, $apiKey) {
         $this->clientId = $clientId;
         $this->apiKey = $apiKey;
-        $this->currentApiUrl = $this->apiUrls[0]; // URL por defecto
     }
     
     /**
-     * Probar diferentes endpoints para encontrar el correcto
+     * Obtener token de acceso OAuth2
      */
-    private function findWorkingEndpoint() {
-        $testEndpoints = [
-            '/statistics',
-            '/v1/statistics', 
-            '/v2/statistics',
-            '/api/statistics',
-            '/api/v1/statistics',
-            '/stats',
-            '/v1/stats',
-            '/report',
-            '/v1/report',
-            '/publisher/statistics',
-            '/publisher/stats'
-        ];
-        
-        foreach ($this->apiUrls as $baseUrl) {
-            foreach ($testEndpoints as $endpoint) {
-                $url = $baseUrl . $endpoint;
-                
-                // Hacer petición de prueba
-                $ch = curl_init();
-                curl_setopt_array($ch, [
-                    CURLOPT_URL => $url,
-                    CURLOPT_RETURNTRANSFER => true,
-                    CURLOPT_HTTPHEADER => [
-                        'Authorization: Bearer ' . $this->apiKey,
-                        'Content-Type: application/json',
-                        'Accept: application/json'
-                    ],
-                    CURLOPT_SSL_VERIFYPEER => true,
-                    CURLOPT_TIMEOUT => 5,
-                    CURLOPT_CUSTOMREQUEST => 'POST',
-                    CURLOPT_POSTFIELDS => json_encode([
-                        'date_from' => date('Y-m-d'),
-                        'date_to' => date('Y-m-d')
-                    ])
-                ]);
-                
-                $response = curl_exec($ch);
-                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-                curl_close($ch);
-                
-                // Si obtenemos algo diferente a 404, es un endpoint válido
-                if ($httpCode !== 404) {
-                    $this->currentApiUrl = $baseUrl;
-                    return [
-                        'found' => true,
-                        'url' => $url,
-                        'httpCode' => $httpCode,
-                        'endpoint' => $endpoint
-                    ];
-                }
-            }
+    private function getAccessToken() {
+        // Si ya tenemos un token, intentar usarlo
+        if ($this->accessToken) {
+            return $this->accessToken;
         }
         
-        return ['found' => false];
-    }
-    
-    /**
-     * Hacer petición a la API con mejor manejo de errores
-     */
-    private function makeRequest($endpoint, $params = [], $method = 'POST') {
-        $url = $this->currentApiUrl . $endpoint;
+        // El API Key que nos dieron YA ES un JWT token, no necesitamos intercambiarlo
+        // Intentar decodificar para verificar
+        $parts = explode('.', $this->apiKey);
+        if (count($parts) === 3) {
+            // Es un JWT válido, usarlo directamente
+            $this->accessToken = $this->apiKey;
+            return $this->accessToken;
+        }
         
-        // Headers
-        $headers = [
-            'Authorization: Bearer ' . $this->apiKey,
-            'Content-Type: application/json',
-            'Accept: application/json',
-            'User-Agent: TrafficStars-Dashboard/2.1'
-        ];
-        
-        // También probar con el client_id en los headers
-        $headersWithClient = array_merge($headers, [
-            'X-Client-Id: ' . $this->clientId,
-            'Client-Id: ' . $this->clientId
-        ]);
+        // Si no es JWT, intentar intercambiar por token
+        $url = $this->authUrl . '/realms/trafficstars/protocol/openid-connect/token';
         
         $ch = curl_init();
-        
-        // Configuración cURL
         curl_setopt_array($ch, [
             CURLOPT_URL => $url,
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_HTTPHEADER => $headersWithClient,
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => http_build_query([
+                'grant_type' => 'client_credentials',
+                'client_id' => $this->clientId,
+                'client_secret' => $this->apiKey
+            ]),
+            CURLOPT_HTTPHEADER => [
+                'Content-Type: application/x-www-form-urlencoded'
+            ],
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_TIMEOUT => $this->timeout
+        ]);
+        
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        
+        if ($httpCode === 200) {
+            $data = json_decode($response, true);
+            if (isset($data['access_token'])) {
+                $this->accessToken = $data['access_token'];
+                return $this->accessToken;
+            }
+        }
+        
+        // Si falla, usar el API key directamente
+        $this->accessToken = $this->apiKey;
+        return $this->accessToken;
+    }
+    
+    /**
+     * Hacer petición a la API con autenticación correcta
+     */
+    private function makeRequest($endpoint, $params = [], $method = 'POST') {
+        // Obtener token de acceso
+        $token = $this->getAccessToken();
+        
+        // Construir URL completa
+        $url = $this->apiUrl . $endpoint;
+        
+        // Headers con el token
+        $headers = [
+            'Authorization: Bearer ' . $token,
+            'Content-Type: application/json',
+            'Accept: application/json',
+            'User-Agent: TrafficStars-Dashboard/4.0'
+        ];
+        
+        $ch = curl_init();
+        
+        // Configuración base
+        $curlOptions = [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER => $headers,
             CURLOPT_SSL_VERIFYPEER => true,
             CURLOPT_SSL_VERIFYHOST => 2,
             CURLOPT_TIMEOUT => $this->timeout,
             CURLOPT_FOLLOWLOCATION => true,
             CURLOPT_MAXREDIRS => 3,
-            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-            CURLOPT_VERBOSE => true
-        ]);
+            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1
+        ];
         
         if ($method === 'POST') {
-            curl_setopt($ch, CURLOPT_POST, true);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($params));
-        } elseif ($method === 'GET' && !empty($params)) {
-            $url .= '?' . http_build_query($params);
-            curl_setopt($ch, CURLOPT_URL, $url);
+            $curlOptions[CURLOPT_URL] = $url;
+            $curlOptions[CURLOPT_POST] = true;
+            $curlOptions[CURLOPT_POSTFIELDS] = json_encode($params);
+        } elseif ($method === 'GET') {
+            $queryString = http_build_query($params);
+            $curlOptions[CURLOPT_URL] = $url . ($queryString ? '?' . $queryString : '');
+            $curlOptions[CURLOPT_HTTPGET] = true;
         }
         
-        // Debug: capturar información detallada
-        $verbose = fopen('php://temp', 'w+');
-        curl_setopt($ch, CURLOPT_STDERR, $verbose);
+        curl_setopt_array($ch, $curlOptions);
+        
+        // Capturar información detallada para debug
+        if ($this->debug) {
+            curl_setopt($ch, CURLOPT_VERBOSE, true);
+            $verbose = fopen('php://temp', 'w+');
+            curl_setopt($ch, CURLOPT_STDERR, $verbose);
+        }
         
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $curlInfo = curl_getinfo($ch);
         $curlError = curl_error($ch);
         $curlErrno = curl_errno($ch);
+        $effectiveUrl = curl_getinfo($ch, CURLINFO_EFFECTIVE_URL);
         
-        // Leer información de debug
-        rewind($verbose);
-        $verboseLog = stream_get_contents($verbose);
-        fclose($verbose);
+        if ($this->debug && isset($verbose)) {
+            rewind($verbose);
+            $verboseLog = stream_get_contents($verbose);
+            fclose($verbose);
+        }
         
         curl_close($ch);
         
-        // Log completo para debugging
+        // Log detallado
         if ($this->debug) {
-            error_log("=== TrafficStars API Debug ===");
+            error_log("=== TrafficStars API Request ===");
             error_log("URL: $url");
+            error_log("Effective URL: $effectiveUrl");
             error_log("Method: $method");
+            error_log("Token (first 50 chars): " . substr($token, 0, 50) . "...");
             error_log("HTTP Code: $httpCode");
-            error_log("Response Length: " . strlen($response));
-            error_log("Response (first 500 chars): " . substr($response, 0, 500));
-            error_log("cURL Error: " . ($curlError ?: 'None'));
-            error_log("Verbose Log: " . substr($verboseLog, 0, 1000));
+            error_log("Response: " . substr($response, 0, 500));
+            if (isset($verboseLog)) {
+                error_log("Verbose: " . substr($verboseLog, 0, 500));
+            }
         }
         
-        // Manejo de errores mejorado
+        // Información de debug
+        $debugInfo = [
+            'url' => $url,
+            'method' => $method,
+            'httpCode' => $httpCode,
+            'tokenUsed' => substr($token, 0, 20) . '...',
+            'response_preview' => substr($response, 0, 200)
+        ];
+        
+        // Manejo de errores
         if ($curlErrno) {
             throw new Exception("Error de conexión: $curlError (código: $curlErrno)");
         }
         
-        // Crear un array de debug para incluir en la respuesta
-        $debugInfo = [
-            'url' => $url,
-            'httpCode' => $httpCode,
-            'method' => $method,
-            'responsePreview' => substr($response, 0, 200),
-            'headers' => $headersWithClient
-        ];
+        // Si obtenemos HTML en lugar de JSON, es un problema de URL
+        if ($httpCode === 200 && strpos($response, '<html') !== false) {
+            throw new Exception("La API devolvió HTML en lugar de JSON. Esto indica un problema con la URL del endpoint.");
+        }
         
         if ($httpCode === 404) {
-            // Intentar encontrar el endpoint correcto
-            $endpointSearch = $this->findWorkingEndpoint();
-            $debugInfo['endpointSearch'] = $endpointSearch;
-            
-            throw new Exception("Endpoint no encontrado (404). Información de debug: " . json_encode($debugInfo));
+            throw new Exception("Endpoint no encontrado (404). URL intentada: $url. Debug: " . json_encode($debugInfo));
         } elseif ($httpCode === 401) {
-            throw new Exception("Error de autenticación (401). Verifica tu API Key.");
+            throw new Exception("Error de autenticación (401). El token podría estar expirado o ser inválido.");
         } elseif ($httpCode === 403) {
-            throw new Exception("Acceso denegado (403). Verifica tus permisos.");
-        } elseif ($httpCode >= 500) {
-            throw new Exception("Error del servidor TrafficStars ($httpCode).");
-        } elseif ($httpCode !== 200 && $httpCode !== 201) {
+            throw new Exception("Acceso denegado (403). Verifica los permisos de tu API key.");
+        } elseif ($httpCode >= 400) {
             $errorData = json_decode($response, true);
             $errorMessage = isset($errorData['message']) ? $errorData['message'] : 
-                           (isset($errorData['error']) ? $errorData['error'] : "Error HTTP $httpCode");
-            throw new Exception($errorMessage . " - Debug: " . json_encode($debugInfo));
+                           (isset($errorData['error']) ? $errorData['error'] : 
+                           (isset($errorData['error_description']) ? $errorData['error_description'] : "Error HTTP $httpCode"));
+            throw new Exception($errorMessage . ". Debug: " . json_encode($debugInfo));
+        }
+        
+        if (empty($response)) {
+            throw new Exception("Respuesta vacía del servidor.");
         }
         
         $data = json_decode($response, true);
@@ -213,82 +211,55 @@ class TrafficstarsAPI {
             throw new Exception('Error al decodificar JSON: ' . json_last_error_msg());
         }
         
-        // Agregar información de debug a la respuesta
-        $data['_debug'] = $debugInfo;
-        
         return $data;
     }
     
     /**
-     * Obtener estadísticas con diferentes formatos de fecha
+     * Obtener estadísticas - método principal
      */
     public function getStats($timeRange = 'today') {
         try {
             // Calcular fechas
             $dates = $this->calculateDateRange($timeRange);
             
-            // Probar diferentes formatos de parámetros
-            $paramFormats = [
-                // Formato 1: Como está en la documentación
-                [
-                    'filters' => [
-                        'date' => [
-                            'from' => $dates['start'],
-                            'to' => $dates['end']
-                        ]
-                    ],
-                    'group_by' => ['country'],
-                    'metrics' => ['impressions', 'clicks', 'revenue', 'cpm', 'ctr']
-                ],
-                // Formato 2: Parámetros directos
-                [
-                    'date_from' => $dates['startDate'],
-                    'date_to' => $dates['endDate'],
-                    'group_by' => 'country',
-                    'metrics' => 'impressions,clicks,revenue,cpm,ctr'
-                ],
-                // Formato 3: Con timezone
-                [
-                    'start_date' => $dates['startDate'],
-                    'end_date' => $dates['endDate'],
-                    'timezone' => 'UTC',
-                    'group_by' => 'country'
-                ]
+            // Primero intentar con el formato exacto de la documentación
+            $params = [
+                'from' => $dates['timestamp_start'],
+                'to' => $dates['timestamp_end'],
+                'group' => ['country'],
+                'with_subaccounts' => false
             ];
             
-            $lastError = null;
-            
-            // Probar diferentes endpoints y formatos
-            $endpoints = ['/v1/statistics', '/statistics', '/v2/statistics', '/api/statistics'];
-            
-            foreach ($endpoints as $endpoint) {
-                foreach ($paramFormats as $params) {
-                    try {
-                        $response = $this->makeRequest($endpoint, $params, 'POST');
-                        
-                        // Si llegamos aquí, la petición fue exitosa
-                        return $this->processStats($response, $timeRange);
-                        
-                    } catch (Exception $e) {
-                        $lastError = $e->getMessage();
-                        
-                        // Si no es un 404, guardar el error
-                        if (strpos($lastError, '404') === false) {
-                            error_log("TrafficStars API - Intento con $endpoint falló: " . $lastError);
-                        }
-                    }
+            // Intentar primero con POST
+            try {
+                $response = $this->makeRequest('/v1/statistics', $params, 'POST');
+                return $this->processStats($response, $timeRange);
+            } catch (Exception $e) {
+                if (strpos($e->getMessage(), '404') !== false) {
+                    // Si falla con POST, intentar con GET
+                    $getParams = [
+                        'from' => $dates['timestamp_start'],
+                        'to' => $dates['timestamp_end'],
+                        'group' => 'country'
+                    ];
+                    
+                    $response = $this->makeRequest('/v1/statistics', $getParams, 'GET');
+                    return $this->processStats($response, $timeRange);
                 }
+                throw $e;
             }
             
-            throw new Exception($lastError ?: 'No se pudo conectar con ningún endpoint de la API');
-            
         } catch (Exception $e) {
-            error_log("TrafficStars API Error Final: " . $e->getMessage());
+            // Si todo falla, intentar obtener información de la cuenta
+            try {
+                // Intentar endpoint de información de cuenta
+                $accountInfo = $this->makeRequest('/v1/account', [], 'GET');
+                error_log("Account info: " . json_encode($accountInfo));
+            } catch (Exception $accountEx) {
+                error_log("No se pudo obtener información de la cuenta: " . $accountEx->getMessage());
+            }
             
-            $demoStats = $this->getDemoStats($timeRange);
-            $demoStats['isDemo'] = true;
-            $demoStats['apiError'] = $e->getMessage();
-            return $demoStats;
+            throw $e;
         }
     }
     
@@ -296,100 +267,116 @@ class TrafficstarsAPI {
      * Calcular rango de fechas
      */
     private function calculateDateRange($timeRange) {
-        $endDate = date('Y-m-d');
-        $endDateTime = $endDate . ' 23:59:59';
+        date_default_timezone_set('UTC');
+        
+        $endDate = time();
+        $endOfDay = strtotime('today 23:59:59');
         
         switch ($timeRange) {
             case 'today':
-                $startDate = $endDate;
+                $startDate = strtotime('today 00:00:00');
+                $endDate = $endOfDay;
                 break;
             case 'week':
-                $startDate = date('Y-m-d', strtotime('-7 days'));
+                $startDate = strtotime('-7 days 00:00:00');
+                $endDate = $endOfDay;
                 break;
             case 'month':
-                $startDate = date('Y-m-d', strtotime('-30 days'));
+                $startDate = strtotime('-30 days 00:00:00');
+                $endDate = $endOfDay;
                 break;
             default:
-                $startDate = $endDate;
+                $startDate = strtotime('today 00:00:00');
+                $endDate = $endOfDay;
         }
         
-        $startDateTime = $startDate . ' 00:00:00';
-        
         return [
-            'start' => $startDateTime,
-            'end' => $endDateTime,
-            'startDate' => $startDate,
-            'endDate' => $endDate
+            'timestamp_start' => $startDate,
+            'timestamp_end' => $endDate,
+            'date_start' => date('Y-m-d', $startDate),
+            'date_end' => date('Y-m-d', $endDate)
         ];
     }
     
     /**
-     * Procesar estadísticas (simplificado)
+     * Procesar estadísticas
      */
     private function processStats($apiData, $timeRange) {
-        // Eliminar información de debug antes de procesar
-        unset($apiData['_debug']);
-        
-        $totalVisits = 0;
+        $totalImpressions = 0;
         $totalClicks = 0;
-        $totalEarnings = 0;
+        $totalRevenue = 0;
         $countryStats = [];
         
-        // Verificar diferentes estructuras de respuesta
-        $data = null;
-        if (isset($apiData['data'])) {
-            $data = $apiData['data'];
-        } elseif (isset($apiData['result'])) {
-            $data = $apiData['result'];
+        // Buscar los datos en diferentes posibles estructuras
+        $items = null;
+        
+        if (isset($apiData['items'])) {
+            $items = $apiData['items'];
+        } elseif (isset($apiData['data'])) {
+            $items = $apiData['data'];
         } elseif (isset($apiData['statistics'])) {
-            $data = $apiData['statistics'];
-        } elseif (is_array($apiData) && !empty($apiData)) {
-            // La respuesta podría ser directamente un array
-            $data = $apiData;
+            $items = $apiData['statistics'];
+        } elseif (isset($apiData['result'])) {
+            $items = $apiData['result'];
+        } elseif (is_array($apiData) && !empty($apiData) && isset($apiData[0])) {
+            $items = $apiData;
         }
         
-        if ($data && is_array($data)) {
-            foreach ($data as $stat) {
-                // Procesar estadísticas...
-                $country = $stat['country'] ?? $stat['geo'] ?? 'XX';
-                $impressions = intval($stat['impressions'] ?? 0);
-                $clicks = intval($stat['clicks'] ?? 0);
-                $revenue = floatval($stat['revenue'] ?? $stat['earnings'] ?? 0);
-                
-                $totalVisits += $impressions;
-                $totalClicks += $clicks;
-                $totalEarnings += $revenue;
-                
-                // Agregar a estadísticas por país...
-                if (!isset($countryStats[$country])) {
-                    $countryStats[$country] = [
-                        'name' => $this->getCountryName($country),
-                        'code' => $country,
-                        'flag' => $this->getCountryFlag($country),
-                        'visits' => 0,
-                        'clicks' => 0,
-                        'earnings' => 0,
-                        'cpm' => 0,
-                        'percentage' => 0
-                    ];
-                }
-                
-                $countryStats[$country]['visits'] += $impressions;
-                $countryStats[$country]['clicks'] += $clicks;
-                $countryStats[$country]['earnings'] += $revenue;
+        if (!$items || !is_array($items)) {
+            if (isset($apiData['impressions']) || isset($apiData['revenue'])) {
+                $items = [$apiData];
+            } else {
+                // Log la estructura recibida para debug
+                error_log("Estructura de respuesta no reconocida: " . json_encode(array_keys($apiData)));
+                return $this->getEmptyStats();
+            }
+        }
+        
+        // Procesar items
+        foreach ($items as $item) {
+            $country = strtoupper($item['country'] ?? $item['geo'] ?? $item['country_code'] ?? 'XX');
+            $impressions = intval($item['impressions'] ?? $item['views'] ?? 0);
+            $clicks = intval($item['clicks'] ?? 0);
+            $revenue = floatval($item['revenue'] ?? $item['earnings'] ?? 0);
+            $ecpm = floatval($item['ecpm'] ?? $item['cpm'] ?? 0);
+            
+            $totalImpressions += $impressions;
+            $totalClicks += $clicks;
+            $totalRevenue += $revenue;
+            
+            if (!isset($countryStats[$country])) {
+                $countryStats[$country] = [
+                    'name' => $this->getCountryName($country),
+                    'code' => $country,
+                    'flag' => $this->getCountryFlag($country),
+                    'visits' => 0,
+                    'clicks' => 0,
+                    'earnings' => 0,
+                    'cpm' => 0,
+                    'percentage' => 0
+                ];
+            }
+            
+            $countryStats[$country]['visits'] += $impressions;
+            $countryStats[$country]['clicks'] += $clicks;
+            $countryStats[$country]['earnings'] += $revenue;
+            
+            if ($ecpm > 0) {
+                $countryStats[$country]['cpm'] = $ecpm;
             }
         }
         
         // Calcular métricas
-        $avgCPM = $totalVisits > 0 ? ($totalEarnings / $totalVisits) * 1000 : 0;
+        $avgCPM = $totalImpressions > 0 ? ($totalRevenue / $totalImpressions) * 1000 : 0;
         
-        // Procesar y ordenar países
+        // Procesar países
         foreach ($countryStats as &$country) {
-            if ($country['visits'] > 0) {
+            if ($country['cpm'] == 0 && $country['visits'] > 0) {
                 $country['cpm'] = ($country['earnings'] / $country['visits']) * 1000;
             }
-            if ($totalEarnings > 0) {
-                $country['percentage'] = ($country['earnings'] / $totalEarnings) * 100;
+            
+            if ($totalRevenue > 0) {
+                $country['percentage'] = ($country['earnings'] / $totalRevenue) * 100;
             }
             
             $country['earnings'] = round($country['earnings'], 2);
@@ -397,6 +384,7 @@ class TrafficstarsAPI {
             $country['percentage'] = round($country['percentage'], 2);
         }
         
+        // Ordenar por ganancias
         usort($countryStats, function($a, $b) {
             return $b['earnings'] <=> $a['earnings'];
         });
@@ -404,14 +392,14 @@ class TrafficstarsAPI {
         $countryStats = array_slice($countryStats, 0, 10);
         
         return [
-            'totalVisits' => $totalVisits,
-            'totalEarnings' => round($totalEarnings, 2),
+            'totalVisits' => $totalImpressions,
+            'totalEarnings' => round($totalRevenue, 2),
             'avgCPM' => round($avgCPM, 2),
             'activeCountries' => count($countryStats),
-            'visitsChange' => rand(5, 25),
-            'earningsChange' => rand(10, 30),
-            'cpmChange' => rand(2, 15),
-            'countriesChange' => rand(0, 3),
+            'visitsChange' => 0,
+            'earningsChange' => 0,
+            'cpmChange' => 0,
+            'countriesChange' => 0,
             'countryStats' => array_values($countryStats),
             'isDemo' => false,
             'lastUpdate' => date('Y-m-d H:i:s')
@@ -419,69 +407,20 @@ class TrafficstarsAPI {
     }
     
     /**
-     * Obtener datos de demostración
+     * Devolver estadísticas vacías
      */
-    private function getDemoStats($timeRange) {
-        $multiplier = 1;
-        switch ($timeRange) {
-            case 'week':
-                $multiplier = 7;
-                break;
-            case 'month':
-                $multiplier = 30;
-                break;
-        }
-        
-        $baseVisits = rand(30000, 50000);
-        $baseEarnings = rand(800, 1200);
-        
-        $countries = [
-            ['code' => 'CA', 'name' => 'Canadá', 'flag' => '🇨🇦', 'factor' => 1.3],
-            ['code' => 'DE', 'name' => 'Alemania', 'flag' => '🇩🇪', 'factor' => 1.1],
-            ['code' => 'US', 'name' => 'Estados Unidos', 'flag' => '🇺🇸', 'factor' => 1.5],
-            ['code' => 'UK', 'name' => 'Reino Unido', 'flag' => '🇬🇧', 'factor' => 1.2],
-            ['code' => 'FR', 'name' => 'Francia', 'flag' => '🇫🇷', 'factor' => 1.0],
-            ['code' => 'ES', 'name' => 'España', 'flag' => '🇪🇸', 'factor' => 0.9],
-            ['code' => 'IT', 'name' => 'Italia', 'flag' => '🇮🇹', 'factor' => 0.85],
-            ['code' => 'AU', 'name' => 'Australia', 'flag' => '🇦🇺', 'factor' => 1.25],
-            ['code' => 'BR', 'name' => 'Brasil', 'flag' => '🇧🇷', 'factor' => 0.7],
-            ['code' => 'MX', 'name' => 'México', 'flag' => '🇲🇽', 'factor' => 0.75]
-        ];
-        
-        $totalVisits = $baseVisits * $multiplier;
-        $totalEarnings = $baseEarnings * $multiplier;
-        $countryStats = [];
-        
-        foreach ($countries as $country) {
-            $countryVisits = round($totalVisits * (rand(5, 15) / 100) * $country['factor']);
-            $countryEarnings = round($totalEarnings * (rand(5, 20) / 100) * $country['factor'], 2);
-            $cpm = $countryVisits > 0 ? round(($countryEarnings / $countryVisits) * 1000, 2) : 0;
-            
-            $countryStats[] = [
-                'name' => $country['name'],
-                'code' => $country['code'],
-                'flag' => $country['flag'],
-                'visits' => $countryVisits,
-                'earnings' => $countryEarnings,
-                'cpm' => $cpm,
-                'percentage' => round(($countryEarnings / $totalEarnings) * 100, 2)
-            ];
-        }
-        
-        usort($countryStats, function($a, $b) {
-            return $b['earnings'] <=> $a['earnings'];
-        });
-        
+    private function getEmptyStats() {
         return [
-            'totalVisits' => $totalVisits,
-            'totalEarnings' => round($totalEarnings, 2),
-            'avgCPM' => round(($totalEarnings / $totalVisits) * 1000, 2),
-            'activeCountries' => count($countryStats),
-            'visitsChange' => rand(10, 20),
-            'earningsChange' => rand(15, 25),
-            'cpmChange' => rand(5, 10),
-            'countriesChange' => rand(1, 2),
-            'countryStats' => $countryStats,
+            'totalVisits' => 0,
+            'totalEarnings' => 0,
+            'avgCPM' => 0,
+            'activeCountries' => 0,
+            'visitsChange' => 0,
+            'earningsChange' => 0,
+            'cpmChange' => 0,
+            'countriesChange' => 0,
+            'countryStats' => [],
+            'isDemo' => false,
             'lastUpdate' => date('Y-m-d H:i:s')
         ];
     }
@@ -502,7 +441,43 @@ class TrafficstarsAPI {
             'AU' => 'Australia',
             'BR' => 'Brasil',
             'MX' => 'México',
-            // ... más países ...
+            'AR' => 'Argentina',
+            'CL' => 'Chile',
+            'CO' => 'Colombia',
+            'PE' => 'Perú',
+            'TW' => 'Taiwán',
+            'CN' => 'China',
+            'HK' => 'Hong Kong',
+            'JP' => 'Japón',
+            'KR' => 'Corea del Sur',
+            'SG' => 'Singapur',
+            'MY' => 'Malasia',
+            'TH' => 'Tailandia',
+            'VN' => 'Vietnam',
+            'IN' => 'India',
+            'RU' => 'Rusia',
+            'UA' => 'Ucrania',
+            'PL' => 'Polonia',
+            'NL' => 'Países Bajos',
+            'BE' => 'Bélgica',
+            'CH' => 'Suiza',
+            'AT' => 'Austria',
+            'SE' => 'Suecia',
+            'NO' => 'Noruega',
+            'DK' => 'Dinamarca',
+            'FI' => 'Finlandia',
+            'NZ' => 'Nueva Zelanda',
+            'ZA' => 'Sudáfrica',
+            'EG' => 'Egipto',
+            'IL' => 'Israel',
+            'TR' => 'Turquía',
+            'GR' => 'Grecia',
+            'PT' => 'Portugal',
+            'CZ' => 'República Checa',
+            'HU' => 'Hungría',
+            'RO' => 'Rumania',
+            'BG' => 'Bulgaria',
+            'XX' => 'Desconocido'
         ];
         
         return isset($countries[$code]) ? $countries[$code] : $code;
@@ -512,14 +487,68 @@ class TrafficstarsAPI {
      * Obtener emoji de bandera
      */
     private function getCountryFlag($code) {
-        $flags = [
-            'US' => '🇺🇸', 'CA' => '🇨🇦', 'UK' => '🇬🇧', 'GB' => '🇬🇧',
-            'DE' => '🇩🇪', 'FR' => '🇫🇷', 'ES' => '🇪🇸', 'IT' => '🇮🇹',
-            'AU' => '🇦🇺', 'BR' => '🇧🇷', 'MX' => '🇲🇽',
-            // ... más banderas ...
+        // Convertir código de país a emoji de bandera
+        if ($code === 'XX' || strlen($code) !== 2) {
+            return '🌍';
+        }
+        
+        $code = strtoupper($code);
+        $flag = '';
+        
+        // Convertir cada letra a su equivalente emoji
+        for ($i = 0; $i < 2; $i++) {
+            $flag .= mb_chr(ord($code[$i]) - ord('A') + 0x1F1E6, 'UTF-8');
+        }
+        
+        return $flag;
+    }
+    
+    /**
+     * Verificar estado de la API y obtener información
+     */
+    public function checkApiStatus() {
+        $status = [
+            'auth_status' => 'unknown',
+            'api_status' => 'unknown',
+            'endpoints_available' => [],
+            'account_info' => null
         ];
         
-        return isset($flags[$code]) ? $flags[$code] : '🌍';
+        // Verificar autenticación
+        try {
+            $token = $this->getAccessToken();
+            $status['auth_status'] = 'ok';
+            $status['token_preview'] = substr($token, 0, 50) . '...';
+        } catch (Exception $e) {
+            $status['auth_status'] = 'error';
+            $status['auth_error'] = $e->getMessage();
+        }
+        
+        // Probar endpoints comunes
+        $endpoints = [
+            '/v1/account' => 'GET',
+            '/v1/statistics' => 'POST',
+            '/v1/ads' => 'GET',
+            '/v1/campaigns' => 'GET'
+        ];
+        
+        foreach ($endpoints as $endpoint => $method) {
+            try {
+                if ($method === 'GET') {
+                    $this->makeRequest($endpoint, [], 'GET');
+                } else {
+                    $this->makeRequest($endpoint, [
+                        'from' => strtotime('today'),
+                        'to' => strtotime('today 23:59:59')
+                    ], 'POST');
+                }
+                $status['endpoints_available'][] = $endpoint;
+            } catch (Exception $e) {
+                // Endpoint no disponible
+            }
+        }
+        
+        return $status;
     }
 }
 
@@ -546,11 +575,22 @@ function processRequest() {
                 echo json_encode($stats);
                 break;
                 
+            case 'checkStatus':
+                if (!isset($input['clientId']) || !isset($input['apiSecret'])) {
+                    throw new Exception('Credenciales de API requeridas');
+                }
+                
+                $api = new TrafficstarsAPI($input['clientId'], $input['apiSecret']);
+                $status = $api->checkApiStatus();
+                
+                echo json_encode($status);
+                break;
+                
             case 'test':
                 echo json_encode([
                     'success' => true,
                     'message' => 'API funcionando',
-                    'version' => '2.1-debug',
+                    'version' => '4.0',
                     'timestamp' => date('Y-m-d H:i:s')
                 ]);
                 break;
@@ -560,10 +600,10 @@ function processRequest() {
         }
         
     } catch (Exception $e) {
-        http_response_code(400);
+        http_response_code(200);
         echo json_encode([
             'error' => $e->getMessage(),
-            'isDemo' => true,
+            'isDemo' => false,
             'timestamp' => date('Y-m-d H:i:s')
         ]);
     }
