@@ -279,6 +279,13 @@ class Authentication {
      * Base64 URL decode
      */
     private function base64UrlDecode($data) {
+        // A diferencia del base64 estándar, el formato URL-safe elimina los caracteres de padding
+        // '='. Si la longitud del string no es múltiplo de 4, base64_decode retornará false.
+        // Agregamos el padding necesario antes de decodificar para asegurar compatibilidad.
+        $remainder = strlen($data) % 4;
+        if ($remainder) {
+            $data .= str_repeat('=', 4 - $remainder);
+        }
         return base64_decode(strtr($data, '-_', '+/'));
     }
     
