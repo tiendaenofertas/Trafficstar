@@ -224,16 +224,20 @@ class TrafficstarsAPI {
             
             // Calcular fechas
             $dates = $this->calculateDateRange($timeRange);
-            
-            // Parámetros para estadísticas según la documentación
+
+            // La API oficial espera fechas en formato YYYY-MM-DD y un parámetro
+            // de agrupación llamado "group_by". En versiones previas se estaban
+            // enviando timestamps Unix y el parámetro "group", lo que provocaba
+            // respuestas vacías o inconsistentes.  Aquí normalizamos la llamada
+            // según la documentación pública.
             $params = [
-                'from' => $dates['from'],
-                'to' => $dates['to'],
-                'tz' => 'UTC',
-                'group' => 'geo' // Usar 'geo' en lugar de 'country'
+                'date_from' => $dates['date_from'],
+                'date_to'   => $dates['date_to'],
+                'timezone'  => 'UTC',
+                'group_by'  => 'country'
             ];
-            
-            // Intentar obtener estadísticas
+
+            // Intentar obtener estadísticas usando el endpoint actual
             $response = $this->makeRequest('/v1/statistics', $params, 'GET');
             
             return $this->processStats($response, $timeRange);
@@ -303,11 +307,30 @@ class TrafficstarsAPI {
         $items = [];
         
         if (isset($apiData['data'])) {
-            $items = $apiData['data'];
+            // Algunas respuestas incluyen los registros en data.rows
+            if (isset($apiData['data']['rows'])) {
+                $items = $apiData['data']['rows'];
+            } else {
+                $items = $apiData['data'];
+            }
         } elseif (isset($apiData['items'])) {
             $items = $apiData['items'];
         } elseif (isset($apiData['statistics'])) {
-            $items = $apiData['statistics'];
+            // La API de TrafficStars devuelve los datos dentro de statistics.rows
+            if (isset($apiData['statistics']['rows'])) {
+                $items = $apiData['statistics']['rows'];
+            } elseif (isset($apiData['statistics']['items'])) {
+                $items = $apiData['statistics']['items'];
+            } else {
+                $items = $apiData['statistics'];
+            }
+            // Usar resumen si está disponible para totales
+            if (isset($apiData['statistics']['summary'])) {
+                $summary = $apiData['statistics']['summary'];
+                $totalImpressions = intval($summary['impressions'] ?? $summary['imp'] ?? $summary['views'] ?? $totalImpressions);
+                $totalClicks      = intval($summary['clicks'] ?? $summary['click'] ?? $totalClicks);
+                $totalRevenue     = floatval($summary['revenue'] ?? $summary['earnings'] ?? $summary['earn'] ?? $totalRevenue);
+            }
         } elseif (is_array($apiData) && !empty($apiData)) {
             // Si la respuesta es directamente un array
             if (isset($apiData[0])) {
